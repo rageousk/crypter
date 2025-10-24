@@ -1,1 +1,7 @@
 /target
+my_doc.txt
+encrypted_file.bin
+decrypted_doc.txt
+*.bin
+*.txt
+!my_doc.txt # <-- Only add this line if you WANT my_doc.txt in the repo
