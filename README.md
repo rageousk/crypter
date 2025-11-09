@@ -26,13 +26,13 @@ You need Rust and Cargo installed to build and run this project.
         ```bash
         cargo run -- encrypt <path/to/your/input_file> <path/to/your/output_file.bin>
         ```
-        *Example:* `cargo run -- encrypt my_document.txt secret_data.bin`
+        *Example:* `cargo run -- encrypt my_doc.txt encrypted_doc.txt`
 
     * **To Decrypt:**
         ```bash
         cargo run -- decrypt <path/to/your/encrypted_file.bin> <path/to/your/decrypted_file>
         ```
-        *Example:* `cargo run -- decrypt secret_data.bin my_document_restored.txt`
+        *Example:* `cargo run -- decrypt encrypted_doc.txt decrypted_doc.txt`
 
     The program will read the input file, perform the operation, and write the result to the output file. The hardcoded key (`an example very very secret key.`) is used for both encryption and decryption.
 

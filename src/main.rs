@@ -37,6 +37,13 @@ use aes_gcm::{
 };
 use aes_gcm::aead::rand_core::RngCore; // Trait needed for OsRng.fill_bytes()
 
+// --- NEW IMPORTS for Password Security ---
+use argon2::{ 
+    password_hash::{PasswordHasher, SaltString}, // Traits for password hashing
+    Argon2,
+};
+use rpassword; // For securely reading passwords from terminal
+
 // Enum for operating modes (encrypt/decrypt) - used by clap
 #[derive(ValueEnum, Clone, Debug)]
 enum Mode {
@@ -59,6 +66,36 @@ struct Cli {
     output_file: String,
 }
 
+// --- Helper Function for Key Derivation ---
+// Derives a 32-byte AES key from a password and a salt using Argon2.
+fn derive_key_from_password(password: &str, salt: &SaltString) -> [u8; 32] {
+    // Argon2 with default parameters is very secure.
+    let argon2 = Argon2::default();
+    
+    // Hash the password with the salt.
+    let password_hash = argon2
+        .hash_password(password.as_bytes(), salt)
+        .expect("Error: Failed to hash password for key derivation.");
+
+    // Extract the raw hash output.
+    let hash_output = password_hash
+        .hash
+        .expect("Error: Argon2 hash output is missing.");
+
+    // Ensure the hash output is exactly 32 bytes (Argon2 default is 32 bytes).
+    let mut key = [0u8; 32];
+    // Copy the hash output into our 32-byte key array.
+    // We use .as_bytes() to get the byte slice of the Output.
+    let hash_bytes = hash_output.as_bytes();
+    if hash_bytes.len() != 32 {
+         eprintln!("Error: Derived key is not 32 bytes long.");
+         process::exit(1);
+    }
+    key.copy_from_slice(hash_bytes);
+
+    key
+}
+
 // --- Main Program Logic ---
 fn main() {
     // Parse command-line arguments based on the Cli struct
@@ -74,68 +111,127 @@ fn main() {
     };
     println!("Successfully read {} bytes from {}.", contents.len(), &cli.input_file);
 
-    // --- Cryptography Setup ---
-    // !!! INSECURE: Hardcoded key for demonstration ONLY. Must be 32 bytes for AES-256. !!!
-    let key_bytes = b"an example very very secret key.";
-    // Create the AES-GCM cipher instance from the key bytes
-    let cipher = Aes256Gcm::new(key_bytes.into());
-
     // --- Main Control Flow ---
     // Use 'match' on the Mode enum to decide whether to encrypt or decrypt
     let output_data: Vec<u8> = match cli.mode {
         // --- Encryption Path ---
-        Mode::Encrypt => {
+    Mode::Encrypt => {
             println!("Encrypting data...");
-            // Generate a unique 12-byte nonce for this encryption
-            let mut nonce_bytes = [0u8; 12];
-            OsRng.fill_bytes(&mut nonce_bytes); // Fill with secure random data
-            let nonce = nonce_bytes.into(); // Convert array to Nonce type
 
-            // Encrypt the data, handle potential errors using 'match'
+            // 1. Securely Prompt for Password (with re-try loop)
+            let password = loop {
+                let p1 = rpassword::prompt_password("Enter a strong password: ")
+                    .unwrap_or_else(|e| {
+                        eprintln!("Error reading password: {}", e);
+                        process::exit(1);
+                    });
+                let p2 = rpassword::prompt_password("Confirm password: ")
+                    .unwrap_or_else(|e| {
+                        eprintln!("Error reading confirmation password: {}", e);
+                        process::exit(1);
+                    });
+
+                if p1 == p2 && !p1.is_empty() {
+                     // Passwords match and are not empty, break loop and return password
+                     break p1;
+                } else if p1.is_empty() {
+                     println!("Password cannot be empty. Please try again.\n");
+                } else {
+                     println!("Passwords do not match. Please try again.\n");
+                }
+            };
+
+            // 2. Generate a random Salt
+            let salt = SaltString::generate(&mut OsRng);
+
+            // 3. Derive the 32-byte AES key
+            println!("Deriving key from password...");
+            let key_bytes = derive_key_from_password(&password, &salt);
+            let cipher = Aes256Gcm::new((&key_bytes).into());
+
+            // 4. Generate a Nonce
+            let mut nonce_bytes = [0u8; 12];
+            OsRng.fill_bytes(&mut nonce_bytes);
+            let nonce = nonce_bytes.into();
+
+            // 5. Encrypt the data
             let encrypted_data = match cipher.encrypt(&nonce, contents.as_ref()) {
-                Ok(data) => data, // Success: data is ciphertext + auth tag
-                Err(_) => { // Failure: print error and exit
+                Ok(data) => data,
+                Err(_) => {
                     eprintln!("Error: Encryption failed!");
                     process::exit(1);
                 }
             };
 
-            // Prepend the nonce to the ciphertext for storage (nonce is not secret)
-            let mut data_to_write = nonce_bytes.to_vec();
+            // 6. Pack everything into the output file
+            let salt_str = salt.as_str();
+            let salt_bytes = salt_str.as_bytes();
+            let salt_len = salt_bytes.len() as u8;
+
+            let mut data_to_write = Vec::new();
+            data_to_write.push(salt_len);
+            data_to_write.extend_from_slice(salt_bytes);
+            data_to_write.extend_from_slice(&nonce_bytes);
             data_to_write.extend_from_slice(&encrypted_data);
-            data_to_write // Return the combined (nonce + ciphertext) Vec<u8>
+
+            data_to_write
         }
 
         // --- Decryption Path ---
-        Mode::Decrypt => {
+       Mode::Decrypt => {
             println!("Decrypting data...");
-            // Basic check: file must be large enough to contain the 12-byte nonce
-            if contents.len() <= 12 {
-                eprintln!("Error: Input file too short (missing nonce?).");
-                process::exit(1);
+
+            // 1. Parse the Salt
+            if contents.len() < 1 {
+                 eprintln!("Error: File too short."); process::exit(1);
             }
+            let salt_len = contents[0] as usize;
+            let mut current_index = 1;
 
-            // Split the input data into the nonce (first 12 bytes) and the ciphertext (the rest)
-            let (nonce_slice, encrypted_data) = contents.split_at(12);
+            if contents.len() < current_index + salt_len {
+                eprintln!("Error: File too short to contain salt."); process::exit(1);
+            }
+            let salt_bytes = &contents[current_index..current_index + salt_len];
+            current_index += salt_len;
 
-            // Convert nonce slice (&[u8]) into a fixed-size array ([u8; 12])
-            let nonce_bytes: [u8; 12] = match nonce_slice.try_into() {
-                Ok(arr) => arr, // Success: arr is [u8; 12]
-                Err(_) => { // Failure (shouldn't happen after length check)
-                    eprintln!("Error: Failed to parse nonce.");
-                    process::exit(1);
+            let salt_str = std::str::from_utf8(salt_bytes)
+                .unwrap_or_else(|_| { eprintln!("Error: Invalid salt in file."); process::exit(1); });
+            let salt = SaltString::from_b64(salt_str)
+                .unwrap_or_else(|e| { eprintln!("Error parsing salt: {}", e); process::exit(1); });
+
+            // 2. Parse the Nonce (next 12 bytes)
+             if contents.len() < current_index + 12 {
+                eprintln!("Error: File too short to contain nonce."); process::exit(1);
+            }
+            let nonce_slice = &contents[current_index..current_index + 12];
+            current_index += 12;
+            let nonce_bytes: [u8; 12] = nonce_slice.try_into().unwrap();
+            let nonce = nonce_bytes.into();
+
+            // 3. The rest is encrypted data
+            let encrypted_data = &contents[current_index..];
+
+            // 4. Loop until valid password is provided
+            loop {
+                let password = rpassword::prompt_password("Enter password to decrypt: ")
+                     .unwrap_or_else(|e| { eprintln!("Error reading password: {}", e); process::exit(1); });
+
+                // 5. Derive key and attempt decryption
+                println!("Deriving key and attempting decryption...");
+                let key_bytes = derive_key_from_password(&password, &salt);
+                let cipher = Aes256Gcm::new((&key_bytes).into());
+
+                match cipher.decrypt(&nonce, encrypted_data) {
+                    Ok(data) => {
+                        // Success! Break the loop and return the decrypted data.
+                        break data;
+                    }
+                    Err(_) => {
+                        // Failure! Print message and let loop repeat.
+                        println!("Decryption failed: Wrong password. Please try again.\n");
+                    }
                 }
-            };
-            let nonce = nonce_bytes.into(); // Convert array to Nonce type
-
-            // Decrypt the data, handle errors (e.g., wrong key, corrupted data) using 'match'
-            match cipher.decrypt(&nonce, encrypted_data.as_ref()) {
-                Ok(data) => data, // Success: data is the original plaintext Vec<u8>
-                Err(_) => { // Failure: print error and exit
-                    eprintln!("Error: Decryption failed! (Wrong key or corrupt data?)");
-                    process::exit(1);
-                }
-            } // Return the plaintext Vec<u8>
+            }
         }
     }; // End of main 'match cli.mode'
 
