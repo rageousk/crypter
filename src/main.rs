@@ -31,7 +31,9 @@
 //      - Created 'src/cli.rs' for command-line argument definitions (structs/enums).
 //      - Created 'src/crypto.rs' for core encryption/decryption logic.
 //      - Simplified 'src/main.rs' to act as the high-level coordinator.
-//
+// Modified: November 9, 2025 (Session 5)
+//  - Implemented overwrite protection: checks if the output file exists and prompts
+//    the user for confirmation before overwriting it, preventing accidental data loss.
 // --- End Work Log ---
 
 mod cli;
@@ -39,6 +41,8 @@ mod crypto;
 
 use clap::Parser;
 use std::fs;
+use std::io::{self, Write}; // NEW: Needed for user prompt (flush stdout, read stdin)
+use std::path::Path;        // NEW: Needed to check if a path exists
 use std::process;
 use crate::cli::Mode;
 
@@ -60,7 +64,6 @@ fn main() {
         Mode::Encrypt => {
             println!("Encrypting '{}'...", args.input_file);
 
-            // UI Logic: Prompt for password with confirmation
             let password = loop {
                 let p1 = rpassword::prompt_password("Enter a strong password: ")
                     .unwrap_or_else(|e| { eprintln!("Error reading password: {}", e); process::exit(1); });
@@ -70,18 +73,15 @@ fn main() {
                 println!("Passwords do not match or are empty. Try again.\n");
             };
 
-            // Delegate to crypto module
             crypto::encrypt_data(&contents, &password)
         }
         Mode::Decrypt => {
             println!("Decrypting '{}'...", args.input_file);
 
-            // UI Logic: Loop until correct password
             loop {
                 let password = rpassword::prompt_password("Enter password to decrypt: ")
                      .unwrap_or_else(|e| { eprintln!("Error reading password: {}", e); process::exit(1); });
 
-                // Attempt decryption via crypto module
                 match crypto::decrypt_data(&contents, &password) {
                     Ok(data) => break data,
                     Err(_) => println!("Decryption failed (wrong password?). Please try again.\n"),
@@ -89,6 +89,24 @@ fn main() {
             }
         }
     };
+
+    // --- NEW: Overwrite Protection ---
+    // Check if the output file already exists.
+    if Path::new(&args.output_file).exists() {
+        // Print warning prompt. ensure it appears immediately with flush().
+        print!("Warning: Output file '{}' already exists. Overwrite? [Y/N]: ", args.output_file);
+        io::stdout().flush().unwrap();
+
+        // Read user's answer.
+        let mut input = String::new();
+        io::stdin().read_line(&mut input).unwrap();
+
+        // Check if answer is NOT 'y' or 'Y'.
+        if input.trim().to_lowercase() != "y" {
+            println!("Operation cancelled. File not overwritten.");
+            process::exit(0); // Exit gracefully without error.
+        }
+    }
 
     // 4. Write Output File
     match fs::write(&args.output_file, output_data) {
