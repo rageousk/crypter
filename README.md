@@ -1,7 +1,3 @@
-Thank you for sharing your README.md content. Here is a refined version styled to better match GitHub's Markdown standards:
-
----
-
 # 🔒 crypter
 
 A secure, simple command-line tool written in Rust for encrypting and decrypting files.
