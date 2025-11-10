@@ -1,51 +1,55 @@
-🔒 crypter
+Thank you for sharing your README.md content. Here is a refined version styled to better match GitHub's Markdown standards:
 
-A secure, simple command-line tool I wrote in Rust for encrypting and decrypting files.
+---
 
-This was a project for my Programming Languages course where I focused on applying core Rust concepts (like Ownership, Structs, Enums, and Modules) to a practical cybersecurity problem. The tool is now fully functional and secure.
+# 🔒 crypter
 
-Features
+A secure, simple command-line tool written in Rust for encrypting and decrypting files.
 
-Secure Encryption: Uses AES-256-GCM, a modern authenticated encryption standard.
+This project was built for a Programming Languages course, focusing on applying core Rust concepts—Ownership, Structs, Enums, and Modules—to a practical cybersecurity problem. The tool is fully functional and secure.
 
-Strong Key Derivation: Uses Argon2 to derive a strong 32-byte encryption key from your password. (No hardcoded keys!)
+## Features
 
-Salting: Generates a unique, random salt for every encryption, meaning the same password encrypting the same file will produce a different result every time, protecting against pre-computation attacks.
+- **Secure Encryption:** Uses AES-256-GCM, a modern authenticated encryption standard.
+- **Strong Key Derivation:** Uses Argon2 to derive a strong 32-byte encryption key from your password. (_No hardcoded keys!_)
+- **Salting:** Generates a unique, random salt for every encryption, ensuring the same password produces a different result each time. This protects against pre-computation attacks.
+- **User-Friendly Prompts:** Securely prompts for passwords (no on-screen echoing) and includes retry loops for mistyped entries.
+- **Overwrite Protection:** Confirmation before overwriting existing output files to prevent data loss.
 
-User-Friendly Prompts: Securely prompts for passwords (no on-screen echoing) and includes retry loops for typos.
-
-Overwrite Protection: Asks for confirmation before overwriting an existing output file to prevent data loss.
-
-How to Use
+## Getting Started
 
 You'll need Rust and Cargo installed on your system.
 
-1. Clone the Repository:
+### 1. Clone the Repository
 
+```sh
 git clone https://github.com/rageousk/crypter.git
+```
 
+### 2. Change Directory
 
-2. Change Directory:
-
+```sh
 cd crypter
+```
 
+### 3. Run with Cargo
 
-3. Run with Cargo:
+#### To Encrypt
 
-To Encrypt
+Run the encrypt command, providing input and output file paths:
 
-Run the encrypt command, providing an input and output file path:
-
+```sh
 cargo run -- encrypt test_doc.txt my_file.bin
+```
 
+_You will be prompted to enter and confirm a password. If it's wrong, you can try again._
 
-(You will be prompted to enter and confirm a password. If it's wrong, you can try again.)
-
-To Decrypt
+#### To Decrypt
 
 Run the decrypt command:
 
+```sh
 cargo run -- decrypt my_file.bin test_doc_decrypted.txt
+```
 
-
-(You will be prompted for your password. If it's wrong, you can try again.)
+_You will be prompted for your password. If it's wrong, you can try again._
