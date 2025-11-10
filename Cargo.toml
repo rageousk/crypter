@@ -1,7 +1,7 @@
 [package]
 name = "crypter_project_sk"
 version = "0.1.0"
-edition = "2024"
+edition = "2025"
 
 # 2. DESCRIPTION
 description = "A secure file encryption tool using AES-GCM and Argon2."
