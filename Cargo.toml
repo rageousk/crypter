@@ -11,7 +11,7 @@ license = "MIT"
 
 # 4. METADATA
 repository = "https://github.com/rageousk/crypter/"
-keywords = ["cli", "encryption", "security", "aes-gcm"]
+keywords = ["cli", "encryption", "security", "aes-gcm", "argon2"]
 categories = ["command-line-utilities", "cryptography"]
 
 [dependencies]

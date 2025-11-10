@@ -1,13 +1,17 @@
+// This module defines the command-line interface structure using clap.
+
 use clap::{Parser, ValueEnum};
 
-// Enum for operating modes (encrypt/decrypt) - used by clap
+// Defines the two modes of operation for the CLI.
+// Deriving ValueEnum allows clap to validate user input (only "encrypt" or "decrypt").
 #[derive(ValueEnum, Clone, Debug)]
 pub enum Mode {
     Encrypt,
     Decrypt,
 }
 
-// Struct to define and parse command-line arguments using clap
+// Defines the complete set of command-line arguments.
+// clap's 'derive(Parser)' macro automatically generates the argument parser.
 #[derive(Parser)]
 #[command(version, about = "A simple CLI tool to encrypt and decrypt files.", long_about = None)]
 pub struct Cli {
