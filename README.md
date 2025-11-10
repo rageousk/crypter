@@ -14,7 +14,24 @@ This project was built for a Programming Languages course, focusing on applying 
 
 ## Getting Started
 
-You'll need Rust and Cargo installed on your system.
+You’ll need **Rust** and **Cargo** installed on your system.
+
+### Installing Rust and Cargo
+
+If you don't already have Rust and Cargo, install them using the official installer:
+
+```sh
+curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
+```
+This command works on most Unix-based systems (Linux, macOS).  
+For Windows, download and run the installer from [rustup.rs](https://rustup.rs).
+
+After installation, **restart your terminal** and verify:
+
+```sh
+rustc --version
+cargo --version
+```
 
 ### 1. Clone the Repository
 
@@ -33,19 +50,15 @@ cd crypter
 #### To Encrypt
 
 Run the encrypt command, providing input and output file paths:
-
 ```sh
 cargo run -- encrypt test_doc.txt my_file.bin
 ```
-
 _You will be prompted to enter and confirm a password. If it's wrong, you can try again._
 
 #### To Decrypt
 
 Run the decrypt command:
-
 ```sh
 cargo run -- decrypt my_file.bin test_doc_decrypted.txt
 ```
-
 _You will be prompted for your password. If it's wrong, you can try again._
